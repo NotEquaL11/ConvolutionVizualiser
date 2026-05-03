@@ -1,5 +1,3 @@
-# ConvolutionVizualiser
-Signals and Systems Second year project for visualzing the Convolution of two input Signals
 # Convolution Visualizer
 
 An interactive, step-by-step visualizer for **1D Discrete Convolution** — built to teach the *flip, shift, multiply, and add* process visually.
