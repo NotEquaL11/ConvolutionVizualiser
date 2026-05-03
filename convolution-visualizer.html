@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Convolution Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --bg2: #111118;
+  --bg3: #18181f;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #e8e8f0;
+  --muted: #6b6b80;
+  --blue: #4d9ef7;
+  --blue-dim: rgba(77,158,247,0.15);
+  --red: #f7614d;
+  --red-dim: rgba(247,97,77,0.15);
+  --green: #4df7a0;
+  --green-dim: rgba(77,247,160,0.12);
+  --amber: #f7c94d;
+  --amber-dim: rgba(247,201,77,0.18);
+  --panel-r: 10px;
+  --mono: 'Space Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans)}
+
+/* ── Layout ── */
+body{display:grid;grid-template-rows:auto 1fr auto;min-height:100vh}
+
+header{
+  padding:18px 28px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:16px;
+  background:var(--bg);
+  position:sticky;top:0;z-index:10;
+}
+header h1{
+  font-family:var(--mono);font-size:15px;font-weight:700;
+  letter-spacing:0.04em;color:var(--text);
+}
+header .sub{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.badge{
+  font-family:var(--mono);font-size:10px;padding:3px 8px;
+  border-radius:4px;border:1px solid var(--border2);color:var(--muted);
+  margin-left:auto;
+}
+
+main{
+  display:grid;
+  grid-template-columns:300px 1fr;
+  gap:0;
+  overflow:hidden;
+}
+
+/* ── Left Panel ── */
+.left-panel{
+  border-right:1px solid var(--border);
+  background:var(--bg2);
+  display:flex;flex-direction:column;
+  overflow-y:auto;
+}
+.section{padding:20px;border-bottom:1px solid var(--border)}
+.section-title{
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:14px;
+}
+.field{margin-bottom:14px}
+.field label{
+  display:block;font-size:12px;color:var(--muted);margin-bottom:6px;
+  font-family:var(--mono);
+}
+.field label span{color:var(--blue);font-size:11px}
+.field input[type=text]{
+  width:100%;background:var(--bg3);border:1px solid var(--border2);
+  border-radius:6px;padding:9px 12px;color:var(--text);
+  font-family:var(--mono);font-size:13px;outline:none;
+  transition:border-color .2s;
+}
+.field input[type=text]:focus{border-color:var(--blue)}
+.field input[type=text]::placeholder{color:var(--muted)}
+
+.btn-start{
+  width:100%;padding:11px;background:var(--blue);color:#fff;
+  border:none;border-radius:6px;font-family:var(--mono);font-size:13px;
+  font-weight:700;cursor:pointer;letter-spacing:0.04em;
+  transition:opacity .15s,transform .1s;
+}
+.btn-start:hover{opacity:.88;transform:translateY(-1px)}
+.btn-start:active{transform:translateY(0)}
+
+/* Presets */
+.presets{display:flex;flex-direction:column;gap:7px}
+.preset{
+  padding:9px 11px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:6px;cursor:pointer;transition:border-color .15s,background .15s;
+}
+.preset:hover{border-color:var(--border2);background:#1e1e28}
+.preset .p-title{font-family:var(--mono);font-size:11px;color:var(--text);margin-bottom:3px}
+.preset .p-vals{font-size:10px;color:var(--muted);font-family:var(--mono)}
+
+/* Legend */
+.legend{display:flex;flex-direction:column;gap:8px}
+.leg-row{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--muted)}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* Math box */
+.math-section{padding:20px;flex:1}
+.math-label{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.math-box{
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:14px;font-family:var(--mono);font-size:12px;color:var(--text);
+  line-height:1.7;min-height:80px;word-break:break-word;
+  transition:border-color .3s;
+}
+.math-box.highlight{border-color:var(--amber)}
+.math-hl{color:var(--amber)}
+.math-x{color:var(--blue)}
+.math-h{color:var(--red)}
+.math-y{color:var(--green)}
+
+/* ── Right Panel: Graphs ── */
+.right-panel{
+  display:flex;flex-direction:column;
+  background:var(--bg);
+  overflow:hidden;
+}
+.graph-area{
+  flex:1;display:flex;flex-direction:column;
+  padding:20px 24px 12px;gap:0;
+  overflow:hidden;
+}
+.graph-block{
+  flex:1;display:flex;flex-direction:column;
+  border-bottom:1px solid var(--border);
+  padding-bottom:4px;margin-bottom:4px;
+  min-height:0;
+}
+.graph-block:last-child{border-bottom:none}
+.graph-header{
+  display:flex;align-items:baseline;gap:10px;
+  margin-bottom:4px;flex-shrink:0;
+}
+.graph-title{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted)}
+.graph-sub{font-family:var(--mono);font-size:10px;color:var(--muted);opacity:.6}
+canvas{flex:1;display:block;width:100%;min-height:0}
+
+/* ── Controls bar ── */
+.controls-bar{
+  padding:14px 24px;border-top:1px solid var(--border);
+  background:var(--bg2);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  grid-column:1/-1;
+}
+.ctrl-btn{
+  width:36px;height:36px;border-radius:8px;
+  border:1px solid var(--border2);background:var(--bg3);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .12s,border-color .12s;flex-shrink:0;
+}
+.ctrl-btn:hover{background:#22222e;border-color:var(--border2)}
+.ctrl-btn svg{width:14px;height:14px;fill:var(--text)}
+.ctrl-btn.play-btn{
+  width:42px;height:42px;background:var(--blue);border-color:var(--blue);
+}
+.ctrl-btn.play-btn:hover{opacity:.85}
+.step-badge{
+  font-family:var(--mono);font-size:11px;color:var(--muted);
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:6px;padding:6px 12px;
+}
+.speed-wrap{
+  display:flex;align-items:center;gap:8px;margin-left:auto;
+}
+.speed-wrap label{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  height:3px;background:var(--border2);border-radius:2px;outline:none;cursor:pointer;width:100px;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--blue);cursor:pointer;
+}
+
+/* ── Phase tag ── */
+.phase-tag{
+  font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:4px;
+  text-transform:uppercase;letter-spacing:.08em;flex-shrink:0;
+  transition:background .3s,color .3s;
+}
+.phase-flip{background:rgba(77,158,247,.15);color:var(--blue)}
+.phase-shift{background:rgba(247,201,77,.15);color:var(--amber)}
+.phase-compute{background:rgba(77,247,160,.15);color:var(--green)}
+.phase-done{background:rgba(255,255,255,.07);color:var(--muted)}
+
+/* scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>CONVOLUTION<span style="color:var(--blue)">_</span>VIZ</h1>
+    <div class="sub">1D Discrete Convolution — flip · shift · multiply · add</div>
+  </div>
+  <div class="badge">y[n] = Σ x[k]·h[n−k]</div>
+</header>
+
+<main>
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="section">
+      <div class="section-title">Signals</div>
+      <div class="field">
+        <label>x[n] — Input signal <span>(comma separated)</span></label>
+        <input type="text" id="xInput" value="1, 2, 3, 1" placeholder="e.g. 1, 2, 3"/>
+      </div>
+      <div class="field">
+        <label>h[n] — Impulse response <span>(comma separated)</span></label>
+        <input type="text" id="hInput" value="1, -1, 2" placeholder="e.g. 1, -1, 2"/>
+      </div>
+      <button class="btn-start" onclick="initConv()">▶  Start Visualization</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Presets</div>
+      <div class="presets">
+        <div class="preset" onclick="loadPreset('1,2,3,1','1,-1,2')">
+          <div class="p-title">Default example</div>
+          <div class="p-vals">x = [1,2,3,1]  ·  h = [1,−1,2]</div>
+        </div>
+        <div class="preset" onclick="loadPreset('1,0,1,0,1','1,1,1')">
+          <div class="p-title">Moving average (box filter)</div>
+          <div class="p-vals">x = [1,0,1,0,1]  ·  h = [1,1,1]</div>
+        </div>
+        <div class="preset" onclick="loadPreset('1,2,3','1,1')">
+          <div class="p-title">Simple accumulate</div>
+          <div class="p-vals">x = [1,2,3]  ·  h = [1,1]</div>
+        </div>
+        <div class="preset" onclick="loadPreset('1,0,0,0,0','1,2,3,4')">
+          <div class="p-title">Impulse response demo</div>
+          <div class="p-vals">x = [1,0,0,0,0]  ·  h = [1,2,3,4]</div>
+        </div>
+        <div class="preset" onclick="loadPreset('3,-1,2,0,1','1,2,-1')">
+          <div class="p-title">Mixed polarity</div>
+          <div class="p-vals">x = [3,−1,2,0,1]  ·  h = [1,2,−1]</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Color Key</div>
+      <div class="legend">
+        <div class="leg-row"><div class="leg-dot" style="background:var(--blue)"></div>x[k] — input signal</div>
+        <div class="leg-row"><div class="leg-dot" style="background:var(--red)"></div>h[n−k] — flipped &amp; sliding</div>
+        <div class="leg-row"><div class="leg-dot" style="background:var(--green)"></div>y[n] — output (builds up)</div>
+        <div class="leg-row"><div class="leg-dot" style="background:var(--amber)"></div>Active multiply pair</div>
+      </div>
+    </div>
+
+    <div class="math-section">
+      <div class="math-label">Equation  /  current step</div>
+      <div class="math-box" id="mathBox">
+        <span style="color:var(--muted)">Press <strong style="color:var(--blue)">Start</strong> to begin the visualization.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="graph-area">
+      <div class="graph-block">
+        <div class="graph-header">
+          <div class="graph-title" style="color:var(--blue)">x[k]</div>
+          <div class="graph-sub" id="xSub">input signal</div>
+        </div>
+        <canvas id="cX"></canvas>
+      </div>
+      <div class="graph-block">
+        <div class="graph-header">
+          <div class="graph-title" style="color:var(--red)" id="hTitle">h[n−k]</div>
+          <div class="graph-sub" id="hSub">flipped &amp; sliding</div>
+        </div>
+        <canvas id="cH"></canvas>
+      </div>
+      <div class="graph-block" style="border-bottom:none">
+        <div class="graph-header">
+          <div class="graph-title" style="color:var(--green)">y[n]</div>
+          <div class="graph-sub" id="ySub">output — building up</div>
+        </div>
+        <canvas id="cY"></canvas>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- CONTROLS BAR — spans full width -->
+<div class="controls-bar">
+  <button class="ctrl-btn" title="Reset" onclick="resetAnim()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="fill:none;stroke:var(--text);width:15px;height:15px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3"/></svg>
+  </button>
+  <button class="ctrl-btn" title="Previous" onclick="stepDir(-1)">
+    <svg viewBox="0 0 24 24" style="fill:var(--text)"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+  </button>
+  <button class="ctrl-btn play-btn" title="Play / Pause" onclick="togglePlay()" id="btnPlay">
+    <svg id="playIcon" viewBox="0 0 24 24" style="fill:#fff"><path d="M8 5v14l11-7z"/></svg>
+  </button>
+  <button class="ctrl-btn" title="Next" onclick="stepDir(1)">
+    <svg viewBox="0 0 24 24" style="fill:var(--text)"><path d="M6 18l8.5-6L6 6v12zm2.5-6 5.5 4V8z"/><rect x="16" y="6" width="2" height="12"/></svg>
+  </button>
+
+  <span class="phase-tag phase-done" id="phaseTag">READY</span>
+  <span class="step-badge" id="stepInfo">—</span>
+
+  <div class="speed-wrap">
+    <label>Speed</label>
+    <input type="range" id="speedSlider" min="1" max="10" value="4" step="1"/>
+    <span style="font-family:var(--mono);font-size:11px;color:var(--muted)" id="speedLabel">4</span>
+  </div>
+</div>
+
+<script>
+const TAU = Math.PI * 2;
+let xArr=[], hArr=[], yArr=[], hFlipped=[];
+let steps=[], stepIdx=0;
+let playing=false, animTimer=null;
+let yBuilt=[];
+
+document.getElementById('speedSlider').addEventListener('input', function(){
+  document.getElementById('speedLabel').textContent=this.value;
+});
+
+function loadPreset(xs,hs){
+  document.getElementById('xInput').value=xs;
+  document.getElementById('hInput').value=hs;
+  initConv();
+}
+
+function parse(s){ return s.split(',').map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v)); }
+
+function fmt(v){
+  const r=Math.round(v*1000)/1000;
+  return r===Math.trunc(r)?String(r):r.toFixed(2).replace(/\.?0+$/,'');
+}
+
+function buildSteps(){
+  const xLen=xArr.length, hLen=hArr.length;
+  const yLen=xLen+hLen-1;
+  yArr=new Array(yLen).fill(0);
+  hFlipped=[...hArr].reverse();
+  steps=[];
+  steps.push({phase:'flip',n:null,pairs:[],msg:'Flip: h[k] is reversed across the y-axis → h[−k]'});
+  steps.push({phase:'shift',n:null,pairs:[],msg:'Shift: h[−k] slides to starting position (before overlap)'});
+  for(let n=0;n<yLen;n++){
+    let pairs=[],sum=0;
+    for(let k=0;k<xLen;k++){
+      const hi=n-k;
+      if(hi>=0&&hi<hLen){
+        const xv=xArr[k],hv=hFlipped[hLen-1-hi];
+        pairs.push({k,xv,hv,prod:xv*hv});
+        sum+=xv*hv;
+      }
+    }
+    yArr[n]=parseFloat(sum.toFixed(8));
+    const eq=pairs.length
+      ? pairs.map(p=>`(${fmt(p.xv)}×${fmt(p.hv)})`).join(' + ')+` = ${fmt(sum)}`
+      : '0 (no overlap)';
+    steps.push({phase:'compute',n,pairs,sum:yArr[n],msg:`n=${n}: y[${n}] = ${eq}`});
+  }
+  steps.push({phase:'done',n:null,pairs:[],msg:`Complete! y[n] = [ ${yArr.map(fmt).join(', ')} ]`});
+}
+
+function initConv(){
+  xArr=parse(document.getElementById('xInput').value);
+  hArr=parse(document.getElementById('hInput').value);
+  if(!xArr.length||!hArr.length){
+    document.getElementById('mathBox').innerHTML='<span style="color:var(--red)">Please enter valid numbers in both fields.</span>';
+    return;
+  }
+  yBuilt=[];stepIdx=0;playing=false;clearTimeout(animTimer);
+  buildSteps();
+  drawAll();
+  applyStepUI(0);
+}
+
+function resetAnim(){
+  playing=false;clearTimeout(animTimer);
+  setPlayIcon(false);
+  stepIdx=0;yBuilt=[];
+  if(steps.length){drawAll();applyStepUI(0);}
+}
+
+function togglePlay(){
+  if(!steps.length)return;
+  playing=!playing;
+  setPlayIcon(playing);
+  if(playing)scheduleNext();
+  else clearTimeout(animTimer);
+}
+
+function setPlayIcon(p){
+  document.getElementById('playIcon').innerHTML=p
+    ?'<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>'
+    :'<path d="M8 5v14l11-7z"/>';
+}
+
+function stepDir(d){
+  clearTimeout(animTimer);playing=false;setPlayIcon(false);
+  applyStep(stepIdx+d);
+}
+
+function scheduleNext(){
+  if(!playing)return;
+  const spd=parseInt(document.getElementById('speedSlider').value);
+  const delay=Math.round(1600/spd);
+  animTimer=setTimeout(()=>{
+    if(stepIdx<steps.length-1){applyStep(stepIdx+1);scheduleNext();}
+    else{playing=false;setPlayIcon(false);}
+  },delay);
+}
+
+function applyStep(idx){
+  if(idx<0||idx>=steps.length)return;
+  if(idx<stepIdx){
+    yBuilt=[];
+    for(let i=0;i<idx;i++){const s=steps[i];if(s.phase==='compute'&&s.n!==null)yBuilt[s.n]=s.sum;}
+  }
+  stepIdx=idx;
+  const s=steps[stepIdx];
+  if(s.phase==='compute'&&s.n!==null)yBuilt[s.n]=s.sum;
+  drawAll();applyStepUI(stepIdx);
+}
+
+function applyStepUI(idx){
+  const s=steps[idx]||{phase:'done',msg:'',pairs:[]};
+  // phase tag
+  const tag=document.getElementById('phaseTag');
+  const pMap={flip:'phase-flip',shift:'phase-shift',compute:'phase-compute',done:'phase-done'};
+  tag.className='phase-tag '+(pMap[s.phase]||'phase-done');
+  tag.textContent={flip:'FLIP',shift:'SHIFT',compute:'COMPUTE',done:'DONE'}[s.phase]||'READY';
+  // step badge
+  document.getElementById('stepInfo').textContent=steps.length?`step ${idx+1} / ${steps.length}`:'—';
+  // h label
+  document.getElementById('hTitle').textContent=
+    s.phase==='flip'?'h[−k]':s.phase==='shift'?'h[−k]':
+    s.phase==='compute'&&s.n!==null?`h[${s.n}−k]`:'h[n−k]';
+  document.getElementById('hSub').textContent=
+    s.phase==='flip'?'flipped across y-axis':s.phase==='shift'?'sliding to start position':
+    s.phase==='compute'&&s.n!==null?`n = ${s.n}  ·  highlighted pairs multiply`:
+    s.phase==='done'?'animation complete':'';
+  // math box
+  const mb=document.getElementById('mathBox');
+  mb.className='math-box'+(s.phase==='compute'?' highlight':'');
+  if(s.phase==='compute'&&s.pairs&&s.pairs.length){
+    const parts=s.pairs.map(p=>`<span class="math-x">x[${p.k}]</span>·<span class="math-h">h[${s.n}−${p.k}]</span> = <span class="math-hl">${fmt(p.prod)}</span>`).join('<br>+ ');
+    mb.innerHTML=`<span style="color:var(--muted)">y[${s.n}] =</span><br>${parts}<br><span style="color:var(--muted)">──────────</span><br><span class="math-y">y[${s.n}] = ${fmt(s.sum)}</span>`;
+  } else {
+    mb.innerHTML=`<span style="color:var(--muted)">${s.msg}</span>`;
+  }
+}
+
+/* ── DRAWING ── */
+function dpr(){return window.devicePixelRatio||1;}
+
+function prepCanvas(id){
+  const c=document.getElementById(id);
+  const d=dpr();
+  const rect=c.getBoundingClientRect();
+  const w=Math.round(rect.width)||680, h=Math.round(rect.height)||110;
+  if(c.width!==w*d||c.height!==h*d){c.width=w*d;c.height=h*d;}
+  const ctx=c.getContext('2d');
+  ctx.setTransform(d,0,0,d,0,0);
+  return {ctx,w,h};
+}
+
+function makeScale(indices,values,w,h,pad){
+  const {l,r,t,b}=pad;
+  const pw=w-l-r, ph=h-t-b;
+  const allV=[...values,0];
+  const vmin=Math.min(...allV), vmax=Math.max(...allV);
+  const vspan=Math.max(vmax-vmin,0.5);
+  const imin=Math.min(...indices), imax=Math.max(...indices);
+  const ispan=Math.max(imax-imin,0);
+  const marginI=0.5;
+  function sx(i){return l+((i-imin+marginI*0.5)/(ispan+marginI))*pw;}
+  function sy(v){return t+((vmax+vspan*0.12)-v)/(vspan*1.24)*ph;}
+  return{sx,sy,y0:sy(0)};
+}
+
+function drawStem(ctx,x,y,y0,color,hlColor,isHL,r){
+  const sc=isHL?(hlColor||'#EF9F27'):color;
+  ctx.save();
+  ctx.strokeStyle=sc;
+  ctx.lineWidth=isHL?2.2:1.6;
+  ctx.globalAlpha=isHL?1:0.85;
+  // glow for highlight
+  if(isHL){ctx.shadowColor=sc;ctx.shadowBlur=8;}
+  ctx.beginPath();ctx.moveTo(x,y0);ctx.lineTo(x,y);ctx.stroke();
+  ctx.shadowBlur=0;
+  ctx.fillStyle=sc;
+  ctx.beginPath();ctx.arc(x,y,isHL?5.5:3.5,0,TAU);ctx.fill();
+  if(isHL){
+    ctx.strokeStyle=sc;ctx.lineWidth=1;ctx.globalAlpha=0.25;
+    ctx.beginPath();ctx.arc(x,y,10,0,TAU);ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawGraph(id,indices,values,color,hlIndices,pad){
+  const {ctx,w,h}=prepCanvas(id);
+  ctx.clearRect(0,0,w,h);
+  if(!indices.length)return;
+  const {sx,sy,y0}=makeScale(indices,values,w,h,pad);
+  // zero line
+  ctx.save();ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=0.8;
+  ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(pad.l,y0);ctx.lineTo(w-pad.r,y0);ctx.stroke();
+  ctx.setLineDash([]);ctx.restore();
+  // axis labels
+  ctx.save();ctx.fillStyle='rgba(180,180,200,0.4)';ctx.font=`10px 'Space Mono',monospace`;ctx.textAlign='center';
+  indices.forEach(i=>{
+    const x=sx(i),lv=pad.b>14?h-9:h-5;
+    ctx.fillText(i,x,lv);
+  });
+  ctx.restore();
+  // stems
+  indices.forEach((i,k)=>{
+    const x=sx(i),y=sy(values[k]);
+    const isHL=hlIndices&&hlIndices.includes(k);
+    drawStem(ctx,x,y,y0,color,null,isHL,3.5);
+  });
+}
+
+function drawAll(){drawX();drawH();drawY();}
+
+function drawX(){
+  if(!xArr.length)return;
+  const pad={l:44,r:20,t:16,b:20};
+  const s=steps[stepIdx]||{phase:'',pairs:[]};
+  const hlK=s.phase==='compute'?s.pairs.map(p=>p.k):[];
+  drawGraph('cX',xArr.map((_,i)=>i),xArr,'#4d9ef7',hlK,pad);
+}
+
+function drawH(){
+  if(!hArr.length||!hFlipped.length||stepIdx===0)return;
+  const pad={l:44,r:20,t:16,b:20};
+  const s=steps[stepIdx]||{};
+  const hLen=hFlipped.length;
+  const yLen=xArr.length+hArr.length-1;
+  let offset=0;
+  if(s.phase==='flip'||s.phase==='shift') offset=-(hLen-1);
+  else if(s.phase==='compute'&&s.n!==null) offset=s.n-(hLen-1);
+  else if(s.phase==='done') offset=yLen-1-(hLen-1);
+  else offset=-(hLen-1);
+
+  const indices=hFlipped.map((_,i)=>offset+i);
+  // which positions of hFlipped are highlighted?
+  let hlPos=[];
+  if(s.phase==='compute'&&s.pairs&&s.pairs.length){
+    hlPos=s.pairs.map(p=>{
+      const posInH=s.n-p.k;
+      return hLen-1-posInH+(offset-(offset));  // index in hFlipped array
+    });
+    // recalc: hFlipped[j] corresponds to n-k = hLen-1-j → k = n-(hLen-1-j)
+    hlPos=[];
+    for(let j=0;j<hLen;j++){
+      const k=s.n-(hLen-1-j);
+      if(k>=0&&k<xArr.length&&s.pairs.some(p=>p.k===k)) hlPos.push(j);
+    }
+  }
+  drawGraph('cH',indices,hFlipped,'#f7614d',hlPos,pad);
+}
+
+function drawY(){
+  const pad={l:44,r:20,t:16,b:20};
+  const yLen=xArr.length+hArr.length-1;
+  if(!yLen||(!yBuilt.length&&stepIdx<2))return;
+  const full=Array.from({length:yLen},(_,i)=>i);
+  const s=steps[stepIdx]||{};
+  const hlY=s.phase==='compute'&&s.n!==null?[s.n]:[];
+  const vals=full.map(i=>yBuilt[i]!==undefined?yBuilt[i]:0);
+  drawGraph('cY',full,vals,'#4df7a0',hlY,pad);
+}
+
+window.addEventListener('resize',()=>{if(xArr.length)drawAll();});
+initConv();
+</script>
+</body>
+</html>
